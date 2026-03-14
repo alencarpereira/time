@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Calculadora de Gols - Modelo Poisson Pro</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+
+        <h2>⚽ Calculadora de Gols - Modelo Poisson Profissional</h2>
+        <br>
+
+
+        <!-- ================= MERCADO (ODDS) ================= -->
+        <div class="card">
+            <h3>📈 Odds do Mercado</h3>
+
+            <div class="mercado-grid">
+
+                <div>
+                    <label>Vitória Casa</label>
+                    <input type="number" id="mercadoCasa" step="0.01" placeholder="1.85">
+                </div>
+
+                <div>
+                    <label>Empate</label>
+                    <input type="number" id="mercadoEmpate" step="0.01" placeholder="3.40">
+                </div>
+
+                <div>
+                    <label>Vitória Visitante</label>
+                    <input type="number" id="mercadoVisitante" step="0.01" placeholder="4.20">
+                </div>
+
+                <div>
+                    <label>Over 2.5</label>
+                    <input type="number" id="mercadoOver" step="0.01" placeholder="2.00">
+                </div>
+
+                <div>
+                    <label>Under 2.5</label>
+                    <input type="number" id="mercadoUnder" step="0.01" placeholder="1.85">
+                </div>
+
+                <div>
+                    <label>BTTS</label>
+                    <input type="number" id="mercadoBTTS" step="0.01" placeholder="1.95">
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ================= DADOS DOS TIMES ================= -->
+        <div class="card">
+
+            <div class="coluna">
+                <h4>Time A - Últimos 5 Jogos</h4>
+
+                <table>
+                    <tr>
+                        <th>Jogo</th>
+                        <th>Marcados</th>
+                        <th>Sofridos</th>
+                    </tr>
+                    <tr>
+                        <td>1</td>
+                        <td><input type="number" class="golsA"></td>
+                        <td><input type="number" class="golsSofridosA"></td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td><input type="number" class="golsA"></td>
+                        <td><input type="number" class="golsSofridosA"></td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td><input type="number" class="golsA"></td>
+                        <td><input type="number" class="golsSofridosA"></td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td><input type="number" class="golsA"></td>
+                        <td><input type="number" class="golsSofridosA"></td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td><input type="number" class="golsA"></td>
+                        <td><input type="number" class="golsSofridosA"></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="coluna">
+                <h4>Time B - Últimos 5 Jogos</h4>
+
+                <table>
+                    <tr>
+                        <th>Jogo</th>
+                        <th>Marcados</th>
+                        <th>Sofridos</th>
+                    </tr>
+                    <tr>
+                        <td>1</td>
+                        <td><input type="number" class="golsB"></td>
+                        <td><input type="number" class="golsSofridosB"></td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td><input type="number" class="golsB"></td>
+                        <td><input type="number" class="golsSofridosB"></td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td><input type="number" class="golsB"></td>
+                        <td><input type="number" class="golsSofridosB"></td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td><input type="number" class="golsB"></td>
+                        <td><input type="number" class="golsSofridosB"></td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td><input type="number" class="golsB"></td>
+                        <td><input type="number" class="golsSofridosB"></td>
+                    </tr>
+                </table>
+            </div>
+
+        </div>
+        <!-- ================= CONFRONTO DIRETO ================= -->
+        <div class="card">
+            <h4>Confronto Direto - Últimos 5 Jogos</h4>
+
+            <table class="tabela-jogos">
+                <thead>
+                    <tr>
+                        <th>Jogo</th>
+                        <th>Time A</th>
+                        <th>Time B</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><input type="number" class="h2hA"></td>
+                        <td><input type="number" class="h2hB"></td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td><input type="number" class="h2hA"></td>
+                        <td><input type="number" class="h2hB"></td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td><input type="number" class="h2hA"></td>
+                        <td><input type="number" class="h2hB"></td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td><input type="number" class="h2hA"></td>
+                        <td><input type="number" class="h2hB"></td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td><input type="number" class="h2hA"></td>
+                        <td><input type="number" class="h2hB"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ================= BOTÕES ================= -->
+        <div class="card botoes">
+            <button class="btn-calc" onclick="calcular()">Gerar Resultado</button>
+            <button class="btn-exemplo" onclick="preencherExemplo()">Preencher Exemplo</button>
+            <button class="btn-limpar" onclick="limpar()">Limpar</button>
+        </div>
+
+        <!-- ================= RESULTADO ================= -->
+        <div id="resultado" class="card"></div>
+
+        <!-- ================= GRÁFICOS ================= -->
+        <canvas id="graficoGols" height="150"></canvas>
+        <canvas id="graficoPlacares" height="200"></canvas>
+
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
