@@ -3,6 +3,7 @@
 // ==========================================
 
 const MAX_GOALS = 6;
+let graficoPlacaresInstancia = null;
 
 // ===============================
 // HELPERS
@@ -34,8 +35,7 @@ function probOdd(odd) {
     return odd > 0 ? (1 / odd) * 100 : 0;
 }
 
-// Classificação focada no Time A e Gols
-function classificarTendencia(prob, tipo) {
+function classificarTendencia(prob) {
     if (prob >= 65) return "🔥 MUITO FORTE";
     if (prob >= 55) return "⚡ BOA PROBABILIDADE";
     if (prob >= 45) return "⚠️ MODERADO";
@@ -54,29 +54,30 @@ function calcular() {
     const h2hA = pegarValores("h2hA");
     const h2hB = pegarValores("h2hB");
 
-    // Médias Contextuais
-    const ataqueA = media(golsA);
-    const defesaA = media(sofridosA);
-    const ataqueB = media(golsB);
-    const defesaB = media(sofridosB);
-    const hA = media(h2hA);
-    const hB = media(h2hB);
+    const ataqueA = media(golsA), defesaA = media(sofridosA);
+    const ataqueB = media(golsB), defesaB = media(sofridosB);
+    const hA = media(h2hA), hB = media(h2hB);
 
-    // λ (Lambda) - Expectativa Realista
     let lambdaA = (ataqueA + defesaB + hA) / 3;
     let lambdaB = (ataqueB + defesaA + hB) / 3;
 
-    // Odds do Mercado para Ajuste
+    // Captura de Inputs do Mercado
     const oddCasa = Number(document.getElementById("mercadoCasa").value);
     const oddFora = Number(document.getElementById("mercadoVisitante").value);
+    const bancaTotal = Number(document.getElementById("valorApostaTotal")?.value) || 10;
 
+    const oddsMercado = {
+        empate: Number(document.getElementById("mercadoEmpate").value),
+        over: Number(document.getElementById("mercadoOver").value),
+        btts: Number(document.getElementById("mercadoBTTS").value)
+    };
+
+    // Ajuste de Eficiência de Mercado
     if (oddCasa && oddFora) {
         const pMercadoA = probOdd(oddCasa);
         const pMercadoB = probOdd(oddFora);
         const total = pMercadoA + pMercadoB;
         const pesoA = pMercadoA / total;
-
-        // Ajuste fino baseado na percepção do mercado (Money Line)
         lambdaA *= (1 + (pesoA - 0.5) * 0.25);
         lambdaB *= (1 - (pesoA - 0.5) * 0.15);
     }
@@ -84,34 +85,23 @@ function calcular() {
     let pWinA = 0, pDraw = 0, pWinB = 0, pOver25 = 0, pBTTS = 0;
     let placares = [];
 
+    // Distribuição de Poisson
     for (let i = 0; i <= MAX_GOALS; i++) {
-        const probA = poisson(i, lambdaA);
         for (let j = 0; j <= MAX_GOALS; j++) {
-            const probB = poisson(j, lambdaB);
-            const pP = probA * probB;
-
+            const pP = poisson(i, lambdaA) * poisson(j, lambdaB);
             placares.push({ p: `${i}x${j}`, val: pP * 100 });
-
-            if (i > j) pWinA += pP;
-            else if (i === j) pDraw += pP;
-            else pWinB += pP;
-
+            if (i > j) pWinA += pP; else if (i === j) pDraw += pP; else pWinB += pP;
             if (i + j > 2.5) pOver25 += pP;
             if (i > 0 && j > 0) pBTTS += pP;
         }
     }
 
-    const resA = pWinA * 100;
-    const resB = pWinB * 100;
-    const resEmp = pDraw * 100;
-    const resOver = pOver25 * 100;
-    const resUnder = 100 - resOver;
-    const resBTTS = pBTTS * 100;
+    const resA = pWinA * 100, resB = pWinB * 100, resEmp = pDraw * 100;
+    const resOver = pOver25 * 100, resUnder = 100 - resOver, resBTTS = pBTTS * 100;
 
-    // Ordenar placares
     placares.sort((a, b) => b.val - a.val);
 
-    // Saída de Dados focada no seu pedido
+    // Renderização dos Resultados Principais
     document.getElementById("resultado").innerHTML = `
         <div class="res-section">
             <h3 style="color: #2196F3;">🛡️ ANÁLISE DO TIME A (CASA)</h3>
@@ -119,27 +109,112 @@ function calcular() {
             Chance de Derrota: <b>${resB.toFixed(1)}%</b><br>
             Chance de Empate: <b>${resEmp.toFixed(1)}%</b>
         </div>
-
         <div class="res-section">
             <h3 style="color: #FF9800;">⚽ MERCADO DE GOLS</h3>
             Over 2.5: <b>${resOver.toFixed(1)}%</b> [${classificarTendencia(resOver)}]<br>
             Under 2.5: <b>${resUnder.toFixed(1)}%</b> [${classificarTendencia(resUnder)}]<br>
             <b>BTTS SIM: ${resBTTS.toFixed(1)}%</b> [${classificarTendencia(resBTTS)}]
         </div>
-
         <div class="res-section">
             <h3 style="color: #4CAF50;">🎯 PLACARES MAIS PROVÁVEIS</h3>
             ${placares.slice(0, 5).map(p => `• ${p.p} ➔ <b>${p.val.toFixed(1)}%</b>`).join('<br>')}
         </div>
     `;
+
+    // ==========================================
+    // LÓGICA DE COBERTURA DINÂMICA PRO
+    // ==========================================
+    const divCobertura = document.getElementById("cobertura");
+    divCobertura.style.display = "block";
+
+    // 1. Scanner: Seleciona o melhor mercado para proteção baseado na probabilidade
+    let melhorHedge = { nome: "Empate", odd: oddsMercado.empate, prob: resEmp };
+
+    if (resOver > resEmp && resOver > 50 && oddsMercado.over > 1) {
+        melhorHedge = { nome: "Over 2.5 Gols", odd: oddsMercado.over, prob: resOver };
+    } else if (resBTTS > resEmp && resBTTS > 50 && oddsMercado.btts > 1) {
+        melhorHedge = { nome: "BTTS Sim", odd: oddsMercado.btts, prob: resBTTS };
+    }
+
+    // 2. Cálculo de Stake e Viabilidade
+    if (oddCasa > 1 && melhorHedge.odd > 1) {
+        const stakeHedge = (bancaTotal / melhorHedge.odd).toFixed(2);
+        const stakePrincipal = (bancaTotal - stakeHedge).toFixed(2);
+        const retornoPrincipal = (stakePrincipal * oddCasa).toFixed(2);
+        const retornoHedge = (stakeHedge * melhorHedge.odd).toFixed(2);
+        const lucroSeVencer = (retornoPrincipal - bancaTotal).toFixed(2);
+
+        // 3. Índice de Confiança
+        const confianca = (resA * 0.7 + (100 - resB) * 0.3).toFixed(0);
+        let corConfianca = confianca > 60 ? "#2e7d32" : (confianca > 45 ? "#f9a825" : "#d32f2f");
+
+        // Cores Dinâmicas para o Box de Resultado
+        const corFundoPositivo = "#e8f5e9"; // Verde bem clarinho
+        const corTextoPositivo = "#2e7d32"; // Verde escuro
+        const corFundoNegativo = "#28df6e"; // Vermelho bem clarinho
+        const corTextoNegativo = "#c62828"; // Vermelho escuro
+
+        const estiloBox = lucroSeVencer > 0
+            ? `background: ${corFundoPositivo}; color: ${corTextoPositivo}; border: 1px solid #c0d31b;`
+            : `background: ${corFundoNegativo}; color: ${corTextoNegativo}; border: 1px solid #d1d420;`;
+
+        document.getElementById("coberturaTexto").innerHTML = `
+            <div style="font-family: sans-serif; line-height: 1.4;">
+                <div style="float:right; text-align:center; padding: 5px; border: 1px solid #71da40; border-radius: 5px; background: #fff;">
+                    <span style="font-size:0.7em; color:#666; display:block;">CONFIANÇA</span>
+                    <b style="font-size:1.3em; color:${corConfianca};">${confianca}%</b>
+                </div>
+                
+                <h4 style="margin:0 0 10px 0; color: #fff; font-size: 1.1em;">🛡️ Hedge: ${melhorHedge.nome}</h4>
+                
+                <p style="margin:5px 0; color: #fff;">🎯 <b>Principal:</b> R$ ${stakePrincipal} <span style="font-size:0.9em;">(Vitória)</span></p>
+                <p style="margin:5px 0; color: #fff;">🛡️ <b>Proteção:</b> R$ ${stakeHedge} <span style="font-size:0.9em;">(${melhorHedge.nome})</span></p>
+                
+                <div style="margin-top:12px; padding:12px; border-radius:6px; ${estiloBox}">
+                    <b style="font-size: 1em; display: block; margin-bottom: 4px;">
+                        ${lucroSeVencer > 0 ? '✅ LUCRO ESTIMADO: R$ ' + lucroSeVencer : '⚠️ ALERTA DE PREJUÍZO: R$ ' + Math.abs(lucroSeVencer)}
+                    </b>
+                    <span style="font-size: 0.85em; opacity: 0.9;">
+                        Se der apenas a proteção, você recupera <b>R$ ${retornoHedge}</b> (Banca Protegida).
+                    </span>
+                </div>
+            </div>
+        `;
+    } else {
+        document.getElementById("coberturaTexto").innerHTML = "<div style='color:#666; padding:10px;'>⚠️ Insira as Odds e a Stake para calcular o Hedge.</div>";
+    }
+
+
+    renderizarGrafico(placares.slice(0, 6));
 }
 
-// Funções Preencher e Limpar permanecem iguais
-function preencherExemplo() {
-    const gA = [2, 3, 1, 4, 2]; const sA = [0, 1, 0, 1, 1];
-    const gB = [0, 1, 0, 2, 0]; const sB = [3, 2, 4, 1, 2];
-    const h2hA = [3, 2, 1, 2, 4]; const h2hB = [0, 1, 0, 1, 0];
+function renderizarGrafico(dados) {
+    const ctx = document.getElementById('graficoPlacares').getContext('2d');
+    if (graficoPlacaresInstancia) graficoPlacaresInstancia.destroy();
+    graficoPlacaresInstancia = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: dados.map(d => d.p),
+            datasets: [{
+                label: 'Probabilidade (%)',
+                data: dados.map(d => d.val.toFixed(1)),
+                backgroundColor: '#4CAF50'
+            }]
+        },
+        options: { responsive: true }
+    });
+}
 
+function preencherExemplo() {
+    // Dados Realistas: Time A (Favorito em Casa) vs Time B (Visitante equilibrado)
+    const gA = [2, 1, 3, 0, 2]; // Gols Marcados Casa
+    const sA = [0, 1, 1, 0, 1]; // Gols Sofridos Casa
+    const gB = [1, 0, 2, 1, 0]; // Gols Marcados Fora
+    const sB = [2, 1, 0, 2, 0]; // Gols Sofridos Fora
+    const h2hA = [2, 1, 1, 3, 0]; // Confronto Direto (Time A)
+    const h2hB = [0, 1, 0, 1, 0]; // Confronto Direto (Time B)
+
+    // Preenchendo as tabelas de gols
     document.querySelectorAll(".golsA").forEach((e, i) => e.value = gA[i]);
     document.querySelectorAll(".golsSofridosA").forEach((e, i) => e.value = sA[i]);
     document.querySelectorAll(".golsB").forEach((e, i) => e.value = gB[i]);
@@ -147,17 +222,28 @@ function preencherExemplo() {
     document.querySelectorAll(".h2hA").forEach((e, i) => e.value = h2hA[i]);
     document.querySelectorAll(".h2hB").forEach((e, i) => e.value = h2hB[i]);
 
-    document.getElementById("mercadoCasa").value = 1.45;
-    document.getElementById("mercadoEmpate").value = 4.20;
-    document.getElementById("mercadoVisitante").value = 6.50;
-    document.getElementById("mercadoOver").value = 1.70;
-    document.getElementById("mercadoUnder").value = 2.15;
-    document.getElementById("mercadoBTTS").value = 2.10;
+    // Preenchendo TODOS os campos de mercado (Odds)
+    document.getElementById("mercadoCasa").value = 1.85;
+    document.getElementById("mercadoEmpate").value = 3.50;
+    document.getElementById("mercadoVisitante").value = 4.20;
+    document.getElementById("mercadoOver").value = 2.05;
+    document.getElementById("mercadoUnder").value = 1.80;
+    document.getElementById("mercadoBTTS").value = 1.95;
+
+    // Valor da Aposta (Stake)
+    const campoStake = document.getElementById("valorApostaTotal");
+    if (campoStake) campoStake.value = 10;
+
+    console.log("✅ Exemplo preenchido com sucesso!");
 }
+
 
 function limpar() {
     document.querySelectorAll("input").forEach(e => e.value = "");
     document.getElementById("resultado").innerHTML = "Aguardando dados...";
+    document.getElementById("cobertura").style.display = "none";
+    if (graficoPlacaresInstancia) graficoPlacaresInstancia.destroy();
 }
+
 
 
