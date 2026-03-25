@@ -85,8 +85,19 @@ function calcular() {
     const hA = media(h2hA);
     const hB = media(h2hB);
 
-    let lambdaA = (ataqueA + defesaB + hA) / 3;
-    let lambdaB = (ataqueB + defesaA + hB) / 3;
+    let lambdaA =
+        (ataqueA * 0.5) +
+        (defesaB * 0.35) +
+        (hA * 0.15);
+
+    let lambdaB =
+        (ataqueB * 0.5) +
+        (defesaA * 0.35) +
+        (hB * 0.15);
+
+    // proteção para evitar valores muito baixos
+    lambdaA = Math.max(0.2, lambdaA);
+    lambdaB = Math.max(0.2, lambdaB);
 
     const oddCasa = Number(document.getElementById("mercadoCasa").value);
     const oddFora = Number(document.getElementById("mercadoVisitante").value);
@@ -98,6 +109,7 @@ function calcular() {
         btts: Number(document.getElementById("mercadoBTTS").value)
     };
 
+    // ajuste pelo mercado
     if (oddCasa && oddFora) {
         const pMercadoA = probOdd(oddCasa);
         const pMercadoB = probOdd(oddFora);
@@ -107,6 +119,10 @@ function calcular() {
         lambdaA *= (1 + (pesoA - 0.5) * 0.25);
         lambdaB *= (1 - (pesoA - 0.5) * 0.15);
     }
+
+    // 🔒 limite máximo para evitar distorções
+    lambdaA = Math.min(3.5, lambdaA);
+    lambdaB = Math.min(3.5, lambdaB);
 
     let pWinA = 0;
     let pDraw = 0;
@@ -128,9 +144,7 @@ function calcular() {
             else pWinB += p;
 
             if (i + j > 2.5) pOver25 += p;
-
             if (i > 0 && j > 0) pBTTS += p;
-
         }
     }
 
@@ -143,10 +157,10 @@ function calcular() {
 
     placares.sort((a, b) => b.val - a.val);
 
-    const fairCasa = (100 / resA).toFixed(2);
-    const fairEmpate = (100 / resEmp).toFixed(2);
-    const fairOver = (100 / resOver).toFixed(2);
-    const fairBTTS = (100 / resBTTS).toFixed(2);
+    const fairCasa = resA > 0 ? (100 / resA).toFixed(2) : "-";
+    const fairEmpate = resEmp > 0 ? (100 / resEmp).toFixed(2) : "-";
+    const fairOver = resOver > 0 ? (100 / resOver).toFixed(2) : "-";
+    const fairBTTS = resBTTS > 0 ? (100 / resBTTS).toFixed(2) : "-";
 
     const evCasa = ((oddCasa / fairCasa) - 1) * 100;
 
@@ -167,8 +181,6 @@ function calcular() {
         veredito = "🚫 FORA (SEM VANTAGEM MATEMÁTICA)";
     }
 
-    placares.sort((a, b) => b.val - a.val);
-
     let melhorHedge = { nome: "Empate", odd: oddsMercado.empate, prob: resEmp };
 
     if (resOver > resEmp && resOver > 50 && oddsMercado.over > 1) {
@@ -185,14 +197,14 @@ function calcular() {
 
     if (oddCasa > 1 && melhorHedge.odd > 1) {
 
-        stakeHedge = (bancaTotal / melhorHedge.odd);
-        stakePrincipal = (bancaTotal - stakeHedge);
+        stakeHedge = bancaTotal / melhorHedge.odd;
+        stakePrincipal = bancaTotal - stakeHedge;
 
         const retornoPrincipal = stakePrincipal * oddCasa;
-
-        lucroSeVencer = (retornoPrincipal - bancaTotal);
-
+        lucroSeVencer = retornoPrincipal - bancaTotal;
     }
+
+    const retornoProtecao = stakeHedge * melhorHedge.odd;
 
     document.getElementById("resultado").innerHTML = `
 
@@ -217,16 +229,25 @@ BTTS: ${resBTTS.toFixed(1)}%<br><br>
 🎯 <b>PLACARES MAIS PROVÁVEIS</b><br>
 ${placares.slice(0, 4).map(p => `${p.p} → ${p.val.toFixed(1)}%`).join("<br>")}<br><br>
 
-🛡️ <b>HEDGE</b><br>
-Principal: R$ ${stakePrincipal.toFixed(2)}<br>
-Proteção: R$ ${stakeHedge.toFixed(2)}<br>
-Lucro possível: R$ ${lucroSeVencer.toFixed(2)}<br>
-Confiança: ${confianca}%
+🛡️ <b>Sugestão de Cobertura (Hedge)</b><br>
+
+<b>CONFIANÇA</b><br>
+${confianca}%<br><br>
+
+🛡️ <b>Hedge:</b> ${melhorHedge.nome}<br><br>
+
+🎯 <b>Principal:</b> R$ ${stakePrincipal.toFixed(2)} (Vitória Casa)<br><br>
+
+🛡️ <b>Proteção:</b> R$ ${stakeHedge.toFixed(2)} (${melhorHedge.nome})<br><br>
+
+✅ <b>LUCRO ESTIMADO:</b> R$ ${lucroSeVencer.toFixed(2)}<br>
+
+Se der apenas a proteção, você recupera 
+<b>R$ ${retornoProtecao.toFixed(2)}</b> (Banca protegida)
 
 `;
 
     renderizarGrafico(placares.slice(0, 6));
-
 }
 
 function renderizarGrafico(dados) {
