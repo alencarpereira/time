@@ -1,8 +1,11 @@
 // ==========================================
 // ⚽ CALCULADORA DE PROBABILIDADES FUTEBOL
 // ==========================================
+const HOME_ADV = 1.10;
+const AWAY_ADV = 0.90;
+const MAX_GOALS = 8;
+const MEDIA_LIGA = 2.6;
 
-const MAX_GOALS = 6;
 let graficoPlacaresInstancia = null;
 
 // ===============================
@@ -12,6 +15,24 @@ function media(arr) {
     const valid = arr.filter(v => !isNaN(v));
     if (valid.length === 0) return 0;
     return valid.reduce((a, b) => a + b, 0) / valid.length;
+}
+function mediaPonderada(arr) {
+
+    arr = arr.slice(0, 5); // pega no máximo 5 valores
+
+    const pesos = [5, 4, 3, 2, 1];
+
+    let soma = 0;
+    let pesoTotal = 0;
+
+    for (let i = 0; i < arr.length; i++) {
+
+        soma += arr[i] * pesos[i];
+        pesoTotal += pesos[i];
+
+    }
+
+    return pesoTotal ? soma / pesoTotal : 0;
 }
 
 function pegarValores(classe) {
@@ -65,6 +86,18 @@ function verificarValor(oddMercado, oddJusta) {
     return `<span style="color:#c62828;">${ev.toFixed(1)}%</span>`;
 }
 
+
+function stakeKelly(prob, odd, banca) {
+
+    const p = prob / 100;
+    const b = odd - 1;
+
+    const kelly = ((p * (b + 1) - 1) / b);
+
+    if (kelly <= 0) return 0;
+
+    return banca * (kelly * 0.5); // meia Kelly (segurança)
+}
 // ===============================
 // CORE: CALCULAR
 // ===============================
@@ -78,26 +111,29 @@ function calcular() {
     const h2hA = pegarValores("h2hA");
     const h2hB = pegarValores("h2hB");
 
-    const ataqueA = media(golsA);
-    const defesaA = media(sofridosA);
-    const ataqueB = media(golsB);
-    const defesaB = media(sofridosB);
+    const ataqueA = mediaPonderada(golsA);
+    const defesaA = mediaPonderada(sofridosA);
+    const ataqueB = mediaPonderada(golsB);
+    const defesaB = mediaPonderada(sofridosB);
     const hA = media(h2hA);
     const hB = media(h2hB);
-
     let lambdaA =
-        (ataqueA * 0.5) +
-        (defesaB * 0.35) +
-        (hA * 0.15);
+        (ataqueA * 0.6) +
+        (defesaB * 0.3) +
+        (hA * 0.1);
 
     let lambdaB =
-        (ataqueB * 0.5) +
-        (defesaA * 0.35) +
-        (hB * 0.15);
+        (ataqueB * 0.6) +
+        (defesaA * 0.3) +
+        (hB * 0.1);
 
-    // proteção para evitar valores muito baixos
-    lambdaA = Math.max(0.2, lambdaA);
-    lambdaB = Math.max(0.2, lambdaB);
+    // vantagem casa
+    lambdaA *= HOME_ADV;
+    lambdaB *= AWAY_ADV;
+
+    // limites
+    lambdaA = Math.max(0.4, Math.min(2.8, lambdaA));
+    lambdaB = Math.max(0.3, Math.min(2.5, lambdaB));
 
     const oddCasa = Number(document.getElementById("mercadoCasa").value);
     const oddFora = Number(document.getElementById("mercadoVisitante").value);
@@ -116,8 +152,9 @@ function calcular() {
         const total = pMercadoA + pMercadoB;
         const pesoA = pMercadoA / total;
 
-        lambdaA *= (1 + (pesoA - 0.5) * 0.25);
-        lambdaB *= (1 - (pesoA - 0.5) * 0.15);
+        const ajuste = (pesoA - 0.5) * 0.15;
+        lambdaA *= (1 + ajuste);
+        lambdaB *= (1 - ajuste);
     }
 
     // 🔒 limite máximo para evitar distorções
@@ -162,7 +199,7 @@ function calcular() {
     const fairOver = resOver > 0 ? (100 / resOver).toFixed(2) : "-";
     const fairBTTS = resBTTS > 0 ? (100 / resBTTS).toFixed(2) : "-";
 
-    const evCasa = ((oddCasa / fairCasa) - 1) * 100;
+    const evCasa = (resA / 100 * oddCasa - 1) * 100;
 
     const confianca = (resA * 0.7 + (100 - resB) * 0.3).toFixed(0);
 
